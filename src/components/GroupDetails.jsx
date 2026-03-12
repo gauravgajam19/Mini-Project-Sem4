@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Users, Lock, Unlock, Settings, LogOut, ShieldAlert, MessageSquare, Layout, Calendar as CalendarIcon, CornerDownRight, AlignLeft, AtSign, Send, Smile, Paperclip, Clock, MapPin, X, Image, File, BarChart3, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { ONBOARDING_AVATARS } from '../data/mockData';
@@ -56,8 +57,16 @@ function GroupEmojiPicker({ onSelect, onClose }) {
 }
 
 export default function GroupDetails() {
-  const { user, groups, setGroups, selectedGroupId, setCurrentPage, showToast, factions, students } = useAppContext();
-  const group = groups.find(g => g.id === selectedGroupId);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, groups, setGroups, selectedGroupId, setSelectedGroupId, showToast, factions, students } = useAppContext();
+  
+  // Update context state but use 'id' primarily
+  useEffect(() => {
+    if (id) setSelectedGroupId(Number(id));
+  }, [id, setSelectedGroupId]);
+
+  const group = groups.find(g => g.id === Number(id));
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'tasks'
@@ -140,7 +149,7 @@ export default function GroupDetails() {
   }, [groupMessages]);
 
   if (!group) {
-    return <div className="p-8"><button onClick={() => setCurrentPage('dashboard')}>Go Back</button></div>;
+    return <div className="p-8"><button onClick={() => navigate('/dashboard')}>Go Back</button></div>;
   }
 
   const isAdmin = group.adminId === user.id;
@@ -159,7 +168,7 @@ export default function GroupDetails() {
     });
     setGroups(updated);
     showToast('You have left the group.');
-    setCurrentPage('dashboard');
+    navigate('/dashboard');
   };
 
   const handleChangePrivacy = (e) => {
@@ -643,7 +652,7 @@ export default function GroupDetails() {
                      </div>
                      <button onClick={(e) => {
                        e.stopPropagation();
-                       setCurrentPage('chat'); 
+                       navigate('/chat');
                        showToast(`Opened DM with ${student.name}`);
                      }} className="opacity-0 group-hover:opacity-100 p-2 text-[var(--color-gs-cyan)] hover:bg-[var(--color-gs-cyan)]/20 rounded-lg transition-all">
                        <MessageSquare size={16} />

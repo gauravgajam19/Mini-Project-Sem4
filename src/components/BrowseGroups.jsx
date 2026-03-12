@@ -1,10 +1,13 @@
+'use client'
 import React, { useState } from 'react';
 import { Compass, Sparkles, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { ONBOARDING_SKILLS, ONBOARDING_AVATARS } from '../data/mockData';
+import { useNavigate } from 'react-router-dom';
 
 export default function BrowseGroups() {
-  const { user, groups, setGroups, showToast, setCurrentPage, setSelectedGroupId } = useAppContext();
+  const navigate = useNavigate();
+  const { user, groups, setGroups, showToast, setSelectedGroupId } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -134,7 +137,7 @@ export default function BrowseGroups() {
                 <button 
                   onClick={() => {
                     setSelectedGroupId(group.id);
-                    setCurrentPage('groupDetails');
+                    navigate(`/group/${group.id}`);
                   }}
                   className={"w-full py-3 rounded-xl font-bold transition-all bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] hover:border-[var(--color-gs-cyan)] hover:text-[var(--color-gs-cyan)]"}
                 >

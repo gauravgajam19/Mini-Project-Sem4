@@ -1,4 +1,5 @@
-import React from 'react';
+'use client'
+import React, { useState } from 'react';
 import { Trophy } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
@@ -8,13 +9,14 @@ export default function Leaderboard() {
   // Generate mock XP data on the fly based on factions
   const factionScores = Object.keys(factions).map(fKey => {
     const fStudents = students.filter(s => s.faction === fKey);
+    const [randNum] = useState(() => Math.random());
     // Assign random high XP to top 3 and calc total
     const topUsers = [...fStudents, ...fStudents].slice(0, 3).map((s, i) => ({
       ...s,
       xp: Math.floor(Math.random() * 5000) + (3 - i) * 2000
     })).sort((a, b) => b.xp - a.xp);
     
-    const totalXP = topUsers.reduce((sum, u) => sum + u.xp, Math.floor(Math.random() * 20000) + 10000);
+    const totalXP = topUsers.reduce((sum, u) => sum + u.xp, Math.floor(randNum * 20000) + 10000);
     
     return {
       key: fKey,

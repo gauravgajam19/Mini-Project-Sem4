@@ -13,7 +13,6 @@ const getInitialTheme = () => {
 
 export const AppProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
-  const [currentPage, setCurrentPage] = useState('home');
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [students, setStudents] = useState([]);
@@ -28,7 +27,6 @@ export const AppProvider = ({ children }) => {
   const [toast, setToast] = useState(null);
   const [isInitializingAuth, setIsInitializingAuth] = useState(true);
 
-  // Apply theme class to <html> element so ALL panels, fixed modals, and body inherit it
   const fetchGroups = useCallback(async () => {
     const { data, error } = await insforge.database.from('groups').select('*');
     if (!error) setGroups(data);
@@ -42,7 +40,6 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const fetchStats = useCallback(async () => {
-    // This is a bit advanced for a single query, so we'll do a few simple ones
     const { count: groupCount } = await insforge.database.from('groups').select('*', { count: 'exact', head: true });
     const { count: hackathonCount } = await insforge.database.from('groups').select('*', { count: 'exact', head: true }).eq('type', 'Hackathon');
     const { count: onlineCount } = await insforge.database.from('profiles').select('*', { count: 'exact', head: true }).eq('online', true);
@@ -51,7 +48,7 @@ export const AppProvider = ({ children }) => {
       activeGroups: groupCount || 0,
       openHackathons: hackathonCount || 0,
       onlineMembers: onlineCount || 0,
-      aiMatches: 3 // Mocked for now
+      aiMatches: 3
     });
   }, []);
 
@@ -68,60 +65,20 @@ export const AppProvider = ({ children }) => {
         
         if (data?.session) {
           const authUser = data.session.user;
-          // Check if this user exists in our profiles table
-          const { data: profileData, error: profileError } = await insforge.database
+          const { data: profileData } = await insforge.database
             .from('profiles')
             .select('*')
             .eq('id', authUser.id)
             .single();
 
           if (profileData) {
-            setUserState(profileData);
-            setCurrentPage('dashboard');
+            setUserState({ ...profileData, onboardingComplete: true });
           } else {
-            // User authenticated but no profile yet.
-            // Check if this is a Google OAuth login by looking at user_metadata
-            const metadata = authUser.user_metadata || {};
-            const isGoogleOAuth = authUser.app_metadata?.provider === 'google' || metadata.full_name || metadata.avatar_url;
-
-            if (isGoogleOAuth) {
-              // Auto-construct profile from Google data
-              const newProfile = {
-                id: authUser.id,
-                email: authUser.email,
-                name: metadata.full_name || metadata.name || '',
-                avatar: metadata.avatar_url || '👤',
-                // Set default empty fields so it adheres to schema
-                dob: '',
-                college: '', course: '', branch: '', cgpa: '',
-                bio: 'Google authenticated user.',
-                skills: [], interests: [],
-                social_links: {},
-                online: true,
-                faction: null
-              };
-
-              // Insert directly into DB
-              const { error: insertError } = await insforge.database
-                .from('profiles')
-                .insert([newProfile]);
-
-              if (!insertError) {
-                setUserState(newProfile);
-                setCurrentPage('dashboard');
-                showToast('Google profile synced successfully!', 'success');
-              } else {
-                console.error("Error auto-creating OAuth profile:", insertError);
-                // Fallback to onboarding if insertion fails
-                setUserState({ id: authUser.id, email: authUser.email, isNew: true });
-                setCurrentPage('onboarding');
-              }
-            } else {
-              // Regular email/password empty profile -> send to onboarding
-              setUserState({ id: authUser.id, email: authUser.email, isNew: true });
-              setCurrentPage('onboarding');
-            }
+            // User authenticated but no profile -> needs onboarding
+            setUserState({ id: authUser.id, email: authUser.email, onboardingComplete: false });
           }
+        } else {
+          setUserState(null);
         }
       } catch (err) {
         console.error("Auth session check error:", err);
@@ -146,9 +103,8 @@ export const AppProvider = ({ children }) => {
   };
 
   const handleSetUser = async (userData) => {
-    // Generate a fixed ID for the current session user if not provided (for public prototyping)
-    // If we have an auth user from the session, use that ID instead!
-    const userId = user?.id || userData.id || '00000000-0000-0000-0000-000000000001'; 
+    const userId = user?.id || userData.id;
+    if (!userId) return;
     
     const profile = {
       id: userId,
@@ -157,7 +113,12 @@ export const AppProvider = ({ children }) => {
       skills: userData.skills || [],
       interests: userData.interests || [],
       faction: userData.faction,
-      online: true
+      online: true,
+      college: userData.college || '',
+      course: userData.course || '',
+      branch: userData.branch || '',
+      year: userData.year || '',
+      email: user?.email || userData.email || ''
     };
 
     const { data, error } = await insforge.database
@@ -167,21 +128,22 @@ export const AppProvider = ({ children }) => {
       .single();
 
     if (!error) {
-      setUserState(data);
-      fetchStudents(); // Refresh student list
+      setUserState({ ...data, onboardingComplete: true });
+      fetchStudents();
     } else {
       console.error('Error saving profile:', error);
-      showToast('Error saving profile to backend', 'error');
+      showToast('Error saving profile', 'error');
     }
   };
 
   const logout = async () => {
-    if (user && !user.isNew) {
-      await insforge.database.from('profiles').update({ online: false }).eq('id', user.id);
+    if (user && user.onboardingComplete) {
+      try {
+        await insforge.database.from('profiles').update({ online: false }).eq('id', user.id);
+      } catch (e) { /* ignore */ }
     }
     await insforge.auth.signOut();
     setUserState(null);
-    setCurrentPage('home');
     showToast('Logged out successfully.', 'success');
   };
 
@@ -190,15 +152,42 @@ export const AppProvider = ({ children }) => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const checkAuth = async () => {
+    setIsInitializingAuth(true);
+    try {
+      const { data, error } = await insforge.auth.getCurrentSession();
+      if (data?.session) {
+        const authUser = data.session.user;
+        const { data: profileData } = await insforge.database
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+
+        if (profileData) {
+          setUserState({ ...profileData, onboardingComplete: true });
+        } else {
+          setUserState({ id: authUser.id, email: authUser.email, onboardingComplete: false });
+        }
+      } else {
+        setUserState(null);
+      }
+    } catch (err) {
+      console.error("Auth check error:", err);
+    } finally {
+      setIsInitializingAuth(false);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       user, setUser: handleSetUser,
-      currentPage, setCurrentPage,
       selectedGroupId, setSelectedGroupId,
       groups, setGroups,
       theme, setTheme,
       toast, showToast,
       logout,
+      checkAuth,
       loading,
       isInitializingAuth,
       refreshGroups: fetchGroups,

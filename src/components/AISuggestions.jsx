@@ -7,7 +7,7 @@ export default function AISuggestions() {
   const { user, groups, factions } = useAppContext();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [, setError] = useState('');
 
   const fetchMatches = async () => {
     setLoading(true);
@@ -80,16 +80,16 @@ Schema: [{"groupId": number, "groupName": string, "score": number, "reason": "1-
   return (
     <div className="space-y-8 animate-[slideIn_0.3s_ease-out]">
       {/* Banner */}
-      <div className={"bg-[var(--color-gs-card)] border-2 rounded-3xl p-8 relative overflow-hidden " + factions[user.faction]?.border}>
+      <div className={"bg-gs-card border-2 rounded-3xl p-8 relative overflow-hidden " + factions[user.faction]?.border}>
         <div className="absolute right-0 top-0 opacity-10 pointer-events-none scale-150 -translate-y-1/4 translate-x-1/4">
           <FactionIcon size={300} className={factions[user.faction]?.color} />
         </div>
         
         <div className="relative z-10">
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Bot className="text-[var(--color-gs-cyan)]" size={32} /> AI Matchmaker
+            <Bot className="text-gs-cyan" size={32} /> AI Matchmaker
           </h1>
-          <p className="mt-2 text-[var(--color-gs-text-muted)] max-w-2xl">
+          <p className="mt-2 text-gs-text-muted max-w-2xl">
             We use Claude 4 to analyze your profile ({user.skills.length} skills, {user.interests.length} interests) and find the perfect team dynamics.
           </p>
           <button 
@@ -105,8 +105,8 @@ Schema: [{"groupId": number, "groupName": string, "score": number, "reason": "1-
 
       {/* Results Section */}
       {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center text-[var(--color-gs-cyan)] space-y-4">
-          <div className="w-16 h-16 border-4 border-[var(--color-gs-bg)] border-t-[var(--color-gs-cyan)] rounded-full animate-spin shadow-[0_0_20px_rgba(0,212,255,0.5)]" />
+        <div className="py-20 flex flex-col items-center justify-center text-gs-cyan space-y-4">
+          <div className="w-16 h-16 border-4 border-gs-bg border-t-gs-cyan rounded-full animate-spin shadow-[0_0_20px_rgba(0,212,255,0.5)]" />
           <p className="font-bold animate-pulse">Running neural heuristics...</p>
         </div>
       ) : matches.length > 0 ? (
@@ -114,15 +114,15 @@ Schema: [{"groupId": number, "groupName": string, "score": number, "reason": "1-
           <h2 className="text-2xl font-bold">Top Recommendations</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {matches.map((m, i) => (
-              <div key={i} className={"bg-[var(--color-gs-card)] border border-[var(--color-gs-border)] rounded-2xl p-6 relative overflow-hidden group hover:-translate-y-1 transition-transform bg-gradient-to-b from-transparent to-[var(--color-gs-bg)]"}>
+              <div key={i} className={"bg-gs-card border border-gs-border rounded-2xl p-6 relative overflow-hidden group hover:-translate-y-1 transition-transform bg-linear-to-b from-transparent to-gs-bg"}>
                 <div className={"absolute top-0 left-0 w-full h-1 " + factions[user.faction]?.bg} />
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-bold text-xl">{m.groupName}</h3>
-                  <div className={"w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg bg-[var(--color-gs-bg)] border-2 shadow-[0_0_15px_currentColor] " + factions[user.faction]?.color + " " + factions[user.faction]?.border}>
+                  <div className={"w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg bg-gs-bg border-2 shadow-[0_0_15px_currentColor] " + factions[user.faction]?.color + " " + factions[user.faction]?.border}>
                     {m.score}%
                   </div>
                 </div>
-                <p className="text-sm text-[var(--color-gs-text-muted)] italic">"{m.reason}"</p>
+                <p className="text-sm text-gs-text-muted italic">"{m.reason}"</p>
               </div>
             ))}
           </div>
@@ -130,7 +130,7 @@ Schema: [{"groupId": number, "groupName": string, "score": number, "reason": "1-
       ) : null}
 
       {/* Skill Match View */}
-      <div className="bg-[var(--color-gs-card)] border border-[var(--color-gs-border)] rounded-3xl p-8">
+      <div className="bg-gs-card border border-gs-border rounded-3xl p-8">
         <h2 className="text-xl font-bold mb-6">All Groups: Skill Overlap</h2>
         <div className="space-y-6">
           {groups.map(group => {
@@ -139,11 +139,11 @@ Schema: [{"groupId": number, "groupName": string, "score": number, "reason": "1-
               <div key={group.id}>
                 <div className="flex justify-between items-center mb-2">
                   <p className="font-medium">{group.name}</p>
-                  <p className="text-sm text-[var(--color-gs-cyan)] font-bold">{Math.round(overlap)}% Match</p>
+                  <p className="text-sm text-gs-cyan font-bold">{Math.round(overlap)}% Match</p>
                 </div>
-                <div className="w-full h-2 bg-[var(--color-gs-border)] rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-gs-border rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-[var(--color-gs-cyan)] shadow-[0_0_10px_rgba(0,212,255,0.6)]" 
+                    className="h-full bg-gs-cyan shadow-[0_0_10px_rgba(0,212,255,0.6)]" 
                     style={{ width: overlap + '%' }} 
                   />
                 </div>

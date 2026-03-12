@@ -1,23 +1,27 @@
+'use client'
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Bot, MessageSquare, Trophy, Zap, Sun, Moon, UserCircle, LogOut, ChevronDown } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 export default function Sidebar() {
-  const { user, currentPage, setCurrentPage, theme, setTheme, factions, logout } = useAppContext();
+  const { user, theme, setTheme, factions, logout } = useAppContext();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'browse', label: 'Browse Groups', icon: Users },
-    { id: 'ai', label: 'AI Suggestions', icon: Bot },
-    { id: 'chat', label: 'Campus Chat', icon: MessageSquare },
-    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-    { id: 'profile', label: 'My Profile', icon: UserCircle },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/browse', label: 'Browse Groups', icon: Users },
+    { path: '/ai', label: 'AI Suggestions', icon: Bot },
+    { path: '/chat', label: 'Campus Chat', icon: MessageSquare },
+    { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+    { path: '/profile', label: 'My Profile', icon: UserCircle },
   ];
 
-  const factionColor = user?.faction ? factions[user.faction].color : 'text-[var(--color-gs-text-muted)]';
-  const factionBorder = user?.faction ? factions[user.faction].border : 'border-gray-600';
+  const factionColor = user?.faction ? factions[user.faction].color : 'text-gs-text-muted';
+  const factionBorder = user?.faction ? factions[user.faction].border : 'border-gs-border';
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -27,38 +31,39 @@ export default function Sidebar() {
     setShowLogoutModal(false);
     setShowUserMenu(false);
     logout();
+    navigate('/login');
   };
 
   return (
     <>
-      <aside className="w-56 fixed left-0 top-0 h-screen border-r border-[var(--color-gs-border)] bg-[var(--color-gs-card)] flex flex-col justify-between hidden md:flex transition-all duration-300 z-40">
+      <aside className="w-56 fixed left-0 top-0 h-screen border-r border-gs-border bg-gs-card flex-col justify-between hidden md:flex transition-all duration-300 z-40">
         <div>
           {/* Logo */}
-          <div className="p-6 flex items-center gap-3 cursor-pointer" onClick={() => setCurrentPage('dashboard')}>
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-gs-bg)] border border-[var(--color-gs-cyan)] shadow-[0_0_10px_rgba(0,212,255,0.3)] flex flex-col items-center justify-center text-[var(--color-gs-cyan)]">
+          <div className="p-6 flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
+            <div className="w-8 h-8 rounded-lg bg-gs-bg border border-gs-cyan shadow-[0_0_10px_rgba(0,212,255,0.3)] flex flex-col items-center justify-center text-gs-cyan">
               <Zap size={20} />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-[var(--color-gs-text-main)]">
-              Group<span className="text-[var(--color-gs-cyan)] text-glow-cyan">Sync</span>
+            <h1 className="text-xl font-bold tracking-tight text-gs-text-main">
+              Group<span className="text-gs-cyan text-glow-cyan">Sync</span>
             </h1>
           </div>
 
           {/* Nav Links */}
           <nav className="mt-4 px-3 flex flex-col gap-1">
             {navItems.map((item) => {
-              const isActive = currentPage === item.id;
+              const isActive = location.pathname === item.path;
               const Icon = item.icon;
               return (
                 <button
-                  key={item.id}
-                  onClick={() => setCurrentPage(item.id)}
-                  className={"flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 relative group w-full text-left " + (isActive ? 'bg-[var(--color-gs-bg)] shadow-md' : 'hover:bg-[var(--color-gs-bg)]')}
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={"flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 relative group w-full text-left " + (isActive ? 'bg-gs-bg shadow-md' : 'hover:bg-gs-bg')}
                 >
                   {isActive && (
-                    <div className="absolute left-0 top-2 bottom-2 w-1 bg-[var(--color-gs-cyan)] rounded-r-md shadow-[0_0_8px_rgba(0,212,255,0.6)]" />
+                    <div className="absolute left-0 top-2 bottom-2 w-1 bg-gs-cyan rounded-r-md shadow-[0_0_8px_rgba(0,212,255,0.6)]" />
                   )}
-                  <Icon size={20} className={(isActive ? 'text-[var(--color-gs-cyan)]' : 'text-[var(--color-gs-text-muted)] group-hover:text-[var(--color-gs-text-main)]') + ' transition-colors'} />
-                  <span className={"font-medium transition-colors text-sm " + (isActive ? 'text-[var(--color-gs-text-main)]' : 'text-[var(--color-gs-text-muted)] group-hover:text-[var(--color-gs-text-main)]')}>
+                  <Icon size={20} className={(isActive ? 'text-gs-cyan' : 'text-gs-text-muted group-hover:text-gs-text-main') + ' transition-colors'} />
+                  <span className={"font-medium transition-colors text-sm " + (isActive ? 'text-gs-text-main' : 'text-gs-text-muted group-hover:text-gs-text-main')}>
                     {item.label}
                   </span>
                 </button>
@@ -72,19 +77,19 @@ export default function Sidebar() {
           <div className="px-5 mb-1">
             <button
               onClick={toggleTheme}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] hover:border-[var(--color-gs-cyan)] transition-colors group"
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-gs-bg border border-gs-border hover:border-gs-cyan transition-colors group"
             >
               <div className="flex items-center gap-3">
                 {theme === 'dark'
-                  ? <Moon size={18} className="text-[var(--color-gs-cyan)]" />
-                  : <Sun size={18} className="text-[var(--color-gs-amber)]" />
+                  ? <Moon size={18} className="text-gs-cyan" />
+                  : <Sun size={18} className="text-gs-amber" />
                 }
-                <span className="text-sm font-medium text-[var(--color-gs-text-muted)] group-hover:text-[var(--color-gs-text-main)] transition-colors capitalize">
+                <span className="text-sm font-medium text-gs-text-muted group-hover:text-gs-text-main transition-colors capitalize">
                   {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
                 </span>
               </div>
-              <div className={"relative w-10 h-5 rounded-full transition-colors duration-300 " + (theme === 'dark' ? 'bg-[var(--color-gs-cyan)]/30' : 'bg-[var(--color-gs-amber)]/30')}>
-                <div className={"absolute top-0.5 w-4 h-4 rounded-full transition-all duration-300 " + (theme === 'dark' ? 'left-0.5 bg-[var(--color-gs-cyan)]' : 'left-[22px] bg-[var(--color-gs-amber)]')} />
+              <div className={"relative w-10 h-5 rounded-full transition-colors duration-300 " + (theme === 'dark' ? 'bg-gs-cyan/30' : 'bg-gs-amber/30')}>
+                <div className={"absolute top-0.5 w-4 h-4 rounded-full transition-all duration-300 " + (theme === 'dark' ? 'left-0.5 bg-gs-cyan' : 'left-[22px] bg-gs-amber')} />
               </div>
             </button>
           </div>
@@ -94,33 +99,33 @@ export default function Sidebar() {
             <div className="px-4 relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="w-full flex items-center gap-3 p-2 rounded-xl bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] hover:border-[var(--color-gs-cyan)] transition-colors cursor-pointer group"
+                className="w-full flex items-center gap-3 p-2 rounded-xl bg-gs-bg border border-gs-border hover:border-gs-cyan transition-colors cursor-pointer group"
               >
-                <div className={"w-10 h-10 rounded-lg bg-[var(--color-gs-card)] flex items-center justify-center text-xl border " + factionBorder}>
+                <div className={"w-10 h-10 rounded-lg bg-gs-card flex items-center justify-center text-xl border " + factionBorder}>
                   {user.avatar || '🎓'}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-semibold text-[var(--color-gs-text-main)] truncate group-hover:text-[var(--color-gs-cyan)] transition-colors">{user.name}</p>
+                  <p className="text-sm font-semibold text-gs-text-main truncate group-hover:text-gs-cyan transition-colors">{user.name}</p>
                   <p className={"text-xs truncate " + factionColor}>
                     {factions[user.faction]?.name || 'Student'}
                   </p>
                 </div>
-                <ChevronDown size={14} className={"text-[var(--color-gs-text-muted)] transition-transform duration-200 " + (showUserMenu ? 'rotate-180' : '')} />
+                <ChevronDown size={14} className={"text-gs-text-muted transition-transform duration-200 " + (showUserMenu ? 'rotate-180' : '')} />
               </button>
 
               {/* Dropdown */}
               {showUserMenu && (
-                <div className="absolute bottom-full left-4 right-4 mb-2 bg-[var(--color-gs-card)] border border-[var(--color-gs-border)] rounded-xl overflow-hidden shadow-2xl z-50">
+                <div className="absolute bottom-full left-4 right-4 mb-2 bg-gs-card border border-gs-border rounded-xl overflow-hidden shadow-2xl z-50">
                   <button
-                    onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--color-gs-text-main)] hover:bg-[var(--color-gs-bg)] transition-colors"
+                    onClick={() => { navigate('/profile'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gs-text-main hover:bg-gs-bg transition-colors"
                   >
-                    <UserCircle size={16} className="text-[var(--color-gs-cyan)]" />
+                    <UserCircle size={16} className="text-gs-cyan" />
                     View Profile
                   </button>
                   <button
                     onClick={() => { setShowLogoutModal(true); setShowUserMenu(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-[var(--color-gs-border)]"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors border-t border-gs-border"
                   >
                     <LogOut size={16} />
                     Logout
@@ -135,17 +140,17 @@ export default function Sidebar() {
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[var(--color-gs-card)] border border-[var(--color-gs-border)] rounded-2xl p-8 max-w-sm w-full shadow-2xl animate-[slideIn_0.2s_ease-out]">
+          <div className="bg-gs-card border border-gs-border rounded-2xl p-8 max-w-sm w-full shadow-2xl animate-[slideIn_0.2s_ease-out]">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
                 <LogOut size={28} className="text-red-400" />
               </div>
-              <h2 className="text-xl font-bold text-[var(--color-gs-text-main)] mb-2">Logout?</h2>
-              <p className="text-[var(--color-gs-text-muted)] text-sm mb-6">Are you sure you want to log out of GroupSync?</p>
+              <h2 className="text-xl font-bold text-gs-text-main mb-2">Logout?</h2>
+              <p className="text-gs-text-muted text-sm mb-6">Are you sure you want to log out of GroupSync?</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowLogoutModal(false)}
-                  className="flex-1 py-3 rounded-xl border border-[var(--color-gs-border)] text-[var(--color-gs-text-main)] hover:bg-[var(--color-gs-bg)] transition-colors font-medium"
+                  className="flex-1 py-3 rounded-xl border border-gs-border text-gs-text-main hover:bg-gs-bg transition-colors font-medium"
                 >
                   Cancel
                 </button>

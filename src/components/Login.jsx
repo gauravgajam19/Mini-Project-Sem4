@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Zap, Mail, Lock, ArrowRight } from 'lucide-react';
 import insforge from '../lib/insforge';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login({ onNavigate, onLogin }) {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -28,8 +30,9 @@ export default function Login({ onNavigate, onLogin }) {
         if (authError) throw authError;
 
         if (data) {
-          onLogin(); 
-        }
+        onLogin();
+        navigate('/dashboard')
+      }
       } catch (err) {
         setError(err.message || 'Failed to sign in.');
       } finally {
@@ -55,18 +58,18 @@ export default function Login({ onNavigate, onLogin }) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[var(--color-gs-bg)] p-4 relative overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-screen w-full bg-gs-bg p-4 relative overflow-hidden">
       {/* Background decorative elements */}
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-[var(--color-gs-cyan)]/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-[var(--color-gs-violet)]/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-gs-cyan/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-gs-violet/10 rounded-full blur-[100px] pointer-events-none" />
       
-      <div className="w-full max-w-md bg-[var(--color-gs-card)]/80 backdrop-blur-xl border border-[var(--color-gs-border)] rounded-3xl p-8 z-10 shadow-2xl animate-[slideIn_0.3s_ease-out]">
+      <div className="w-full max-w-md bg-gs-card/80 backdrop-blur-xl border border-gs-border rounded-3xl p-8 z-10 shadow-2xl animate-[slideIn_0.3s_ease-out]">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-[var(--color-gs-bg)] border border-[var(--color-gs-cyan)] shadow-[0_0_15px_rgba(0,212,255,0.4)] flex items-center justify-center text-[var(--color-gs-cyan)] mb-4">
+          <div className="w-12 h-12 rounded-xl bg-gs-bg border border-gs-cyan shadow-[0_0_15px_rgba(0,212,255,0.4)] flex items-center justify-center text-gs-cyan mb-4">
              <Zap size={24} />
           </div>
-          <h2 className="text-3xl font-bold text-[var(--color-gs-text-main)] text-center">Welcome Back</h2>
-          <p className="text-[var(--color-gs-text-muted)] mt-2 text-center">Sign in to continue to GroupSync.</p>
+          <h2 className="text-3xl font-bold text-gs-text-main text-center">Welcome Back</h2>
+          <p className="text-gs-text-muted mt-2 text-center">Sign in to continue to GroupSync.</p>
         </div>
 
         {error && (
@@ -77,10 +80,10 @@ export default function Login({ onNavigate, onLogin }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Email</label>
+            <label className="block text-sm text-gs-text-muted mb-2">Email</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail size={18} className="text-[var(--color-gs-text-muted)]" />
+                <Mail size={18} className="text-gs-text-muted" />
               </div>
               <input 
                 type="email" 
@@ -88,7 +91,7 @@ export default function Login({ onNavigate, onLogin }) {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-lg pl-10 p-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]" 
+                className="w-full bg-gs-bg border border-gs-border rounded-lg pl-10 p-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main" 
                 placeholder="john@example.com" 
               />
             </div>
@@ -96,12 +99,12 @@ export default function Login({ onNavigate, onLogin }) {
 
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm text-[var(--color-gs-text-muted)]">Password</label>
-              <button type="button" className="text-xs text-[var(--color-gs-cyan)] hover:underline">Forgot password?</button>
+              <label className="block text-sm text-gs-text-muted">Password</label>
+              <button type="button" className="text-xs text-gs-cyan hover:underline">Forgot password?</button>
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock size={18} className="text-[var(--color-gs-text-muted)]" />
+                <Lock size={18} className="text-gs-text-muted" />
               </div>
               <input 
                 type="password" 
@@ -109,7 +112,7 @@ export default function Login({ onNavigate, onLogin }) {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-lg pl-10 p-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]" 
+                className="w-full bg-gs-bg border border-gs-border rounded-lg pl-10 p-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main" 
                 placeholder="••••••••" 
               />
             </div>
@@ -121,15 +124,15 @@ export default function Login({ onNavigate, onLogin }) {
         </form>
 
         <div className="my-6 flex items-center">
-          <div className="flex-grow border-t border-[var(--color-gs-border)]"></div>
-          <span className="flex-shrink-0 mx-4 text-[var(--color-gs-text-muted)] text-sm">or</span>
-          <div className="flex-grow border-t border-[var(--color-gs-border)]"></div>
+          <div className="flex-grow border-t border-gs-border"></div>
+          <span className="flex-shrink-0 mx-4 text-gs-text-muted text-sm">or</span>
+          <div className="flex-grow border-t border-gs-border"></div>
         </div>
 
         <button 
           type="button"
           onClick={handleGoogleLogin} 
-          className="w-full py-3 bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] text-[var(--color-gs-text-main)] font-medium rounded-lg hover:bg-[var(--color-gs-border)] transition-colors flex items-center justify-center gap-3 mb-4"
+          className="w-full py-3 bg-gs-bg border border-gs-border text-gs-text-main font-medium rounded-lg hover:bg-gs-border transition-colors flex items-center justify-center gap-3 mb-4"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -140,9 +143,9 @@ export default function Login({ onNavigate, onLogin }) {
           Continue with Google
         </button>
 
-        <p className="text-center text-[var(--color-gs-text-muted)] mt-6 text-sm">
+        <p className="text-center text-gs-text-muted mt-6 text-sm">
           Don't have an account?{' '}
-          <button onClick={() => onNavigate('signup')} className="text-[var(--color-gs-cyan)] hover:underline font-medium">
+          <button onClick={() => onNavigate('signup')} className="text-gs-cyan hover:underline font-medium">
             Sign up
           </button>
         </p>

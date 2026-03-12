@@ -64,14 +64,69 @@ const getPasswordStrength = (password) => {
 function Step1({ data, onChange, onNext }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
   const strength = getPasswordStrength(data.password);
   const passwordsMatch = data.password && data.confirmPassword && data.password === data.confirmPassword;
   const isValid = data.email && data.password.length >= 8 && passwordsMatch;
-  const [error, setError] = useState('');
+
+  const handleInitialSignUp = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data: signUpData, error: authError } = await insforge.auth.signUp({
+        email: data.email,
+        password: data.password
+      });
+
+      if (authError) throw authError;
+
+      if (signUpData?.requireEmailVerification) {
+        setIsVerifying(true);
+      } else {
+        onNext();
+      }
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please check your details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { error: verifyError } = await insforge.auth.verifyEmail({
+        email: data.email,
+        otp: otp
+      });
+
+      if (verifyError) throw verifyError;
+      onNext();
+    } catch (err) {
+      setError(err.message || 'Invalid or expired verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setError('');
+    try {
+      await insforge.auth.resendVerificationEmail({ email: data.email });
+      // Optionally show a success message
+    } catch (err) {
+      setError(err.message || 'Failed to resend code.');
+    }
+  };
 
   const handleGoogleSignup = async () => {
     try {
-      const { data, error: authError } = await insforge.auth.signInWithOAuth({
+      const { data: authData, error: authError } = await insforge.auth.signInWithOAuth({
         provider: 'google',
         redirectTo: window.location.origin
       });
@@ -83,11 +138,62 @@ function Step1({ data, onChange, onNext }) {
     }
   };
 
+  if (isVerifying) {
+    return (
+      <div className="space-y-5 animate-[slideIn_0.3s_ease-out]">
+        <div>
+          <h2 className="text-3xl font-bold text-gs-text-main">Verify Email</h2>
+          <p className="text-gs-text-muted mt-1">We've sent a 6-digit code to <span className="text-gs-cyan font-medium">{data.email}</span></p>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm text-center">
+            {error}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm text-gs-text-muted mb-2">Verification Code</label>
+          <div className="relative">
+            <Shield size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
+            <input
+              type="text" value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main tracking-[0.5em] text-center font-bold text-xl"
+              placeholder="000000"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            className="text-xs text-gs-cyan mt-2 hover:underline"
+          >
+            Didn't receive code? Resend
+          </button>
+        </div>
+
+        <button
+          onClick={handleVerifyOtp} disabled={otp.length !== 6 || loading}
+          className="w-full py-3 bg-gs-cyan text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all shadow-[0_0_15px_rgba(0,212,255,0.3)] flex items-center justify-center gap-2 disabled:opacity-40"
+        >
+          {loading ? 'Verifying...' : 'Verify & Continue'} <Check size={18} />
+        </button>
+        
+        <button
+          onClick={() => setIsVerifying(false)}
+          className="w-full py-2 text-sm text-gs-text-main transition-colors"
+        >
+          Change Email
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 animate-[slideIn_0.3s_ease-out]">
       <div>
-        <h2 className="text-3xl font-bold text-[var(--color-gs-text-main)]">Create Account</h2>
-        <p className="text-[var(--color-gs-text-muted)] mt-1">Start your GroupSync journey.</p>
+        <h2 className="text-3xl font-bold text-gs-text-main">Create Account</h2>
+        <p className="text-gs-text-muted mt-1">Start your GroupSync journey.</p>
       </div>
 
       {error && (
@@ -98,18 +204,18 @@ function Step1({ data, onChange, onNext }) {
 
       {/* Email */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">College Email</label>
+        <label className="block text-sm text-gs-text-muted mb-2">InsForge College Email</label>
         <div className="relative">
-          <Mail size={18} className="absolute left-3 top-3.5 text-[var(--color-gs-text-muted)]" />
+          <Mail size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
           <input
             type="email" value={data.email}
             onChange={e => onChange('email', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl pl-10 pr-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]"
+            className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main"
             placeholder="you@college.edu"
           />
         </div>
         {data.email && !data.email.includes('.edu') && (
-          <p className="text-xs text-[var(--color-gs-amber)] mt-1 flex items-center gap-1">
+          <p className="text-xs text-gs-amber mt-1 flex items-center gap-1">
             <Star size={11} /> College email (.edu) recommended for verification
           </p>
         )}
@@ -117,16 +223,16 @@ function Step1({ data, onChange, onNext }) {
 
       {/* Password */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Password</label>
+        <label className="block text-sm text-gs-text-muted mb-2">InsForge Password</label>
         <div className="relative">
-          <Lock size={18} className="absolute left-3 top-3.5 text-[var(--color-gs-text-muted)]" />
+          <Lock size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
           <input
             type={showPassword ? 'text' : 'password'} value={data.password}
             onChange={e => onChange('password', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl pl-10 pr-12 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]"
+            className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-12 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main"
             placeholder="••••••••"
           />
-          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-[var(--color-gs-text-muted)] hover:text-[var(--color-gs-text-main)]">
+          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gs-text-muted hover:text-gs-text-main">
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
@@ -134,7 +240,7 @@ function Step1({ data, onChange, onNext }) {
           <div className="mt-2 space-y-1">
             <div className="flex gap-1">
               {[0,1,2,3].map(i => (
-                <div key={i} className={"h-1 flex-1 rounded-full transition-all duration-300 " + (i < strength.score ? strength.color : 'bg-[var(--color-gs-border)]')} />
+                <div key={i} className={"h-1 flex-1 rounded-full transition-all duration-300 " + (i < strength.score ? strength.color : 'bg-gs-border')} />
               ))}
             </div>
             <p className={"text-xs font-medium " + (strength.score >= 3 ? 'text-emerald-400' : strength.score >= 2 ? 'text-amber-400' : 'text-red-400')}>
@@ -146,16 +252,16 @@ function Step1({ data, onChange, onNext }) {
 
       {/* Confirm Password */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Confirm Password</label>
+        <label className="block text-sm text-gs-text-muted mb-2">Confirm Password</label>
         <div className="relative">
-          <Lock size={18} className="absolute left-3 top-3.5 text-[var(--color-gs-text-muted)]" />
+          <Lock size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
           <input
             type={showConfirm ? 'text' : 'password'} value={data.confirmPassword}
             onChange={e => onChange('confirmPassword', e.target.value)}
-            className={"w-full bg-[var(--color-gs-bg)] border rounded-xl pl-10 pr-12 py-3 outline-none transition-colors text-[var(--color-gs-text-main)] " + (data.confirmPassword ? (passwordsMatch ? 'border-emerald-500' : 'border-red-500') : 'border-[var(--color-gs-border)] focus:border-[var(--color-gs-cyan)]')}
+            className={"w-full bg-gs-bg border rounded-xl pl-10 pr-12 py-3 outline-none transition-colors text-gs-text-main " + (data.confirmPassword ? (passwordsMatch ? 'border-emerald-500' : 'border-red-500') : 'border-gs-border focus:border-gs-cyan')}
             placeholder="••••••••"
           />
-          <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-3.5 text-[var(--color-gs-text-muted)] hover:text-[var(--color-gs-text-main)]">
+          <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-3.5 text-gs-text-muted hover:text-gs-text-main">
             {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
           {data.confirmPassword && passwordsMatch && (
@@ -169,21 +275,21 @@ function Step1({ data, onChange, onNext }) {
 
       <div className="space-y-3 pt-2">
         <button
-          onClick={onNext} disabled={!isValid}
-          className="w-full py-3 bg-[var(--color-gs-cyan)] text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all shadow-[0_0_15px_rgba(0,212,255,0.3)] hover:shadow-[0_0_25px_rgba(0,212,255,0.5)] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={handleInitialSignUp} disabled={!isValid || loading}
+          className="w-full py-3 bg-gs-cyan text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all shadow-[0_0_15px_rgba(0,212,255,0.3)] hover:shadow-[0_0_25px_rgba(0,212,255,0.5)] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Continue <ArrowRight size={18} />
+          {loading ? 'Processing...' : 'Continue'} <ArrowRight size={18} />
         </button>
 
         <div className="flex items-center gap-4">
-          <div className="flex-1 h-px bg-[var(--color-gs-border)]" />
-          <span className="text-xs text-[var(--color-gs-text-muted)]">or sign up with</span>
-          <div className="flex-1 h-px bg-[var(--color-gs-border)]" />
+          <div className="flex-1 h-px bg-gs-border" />
+          <span className="text-xs text-gs-text-muted">or sign up with</span>
+          <div className="flex-1 h-px bg-gs-border" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {/* Google */}
-          <button type="button" onClick={handleGoogleSignup} className="flex items-center justify-center gap-2 py-3 bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl hover:border-[var(--color-gs-cyan)] transition-colors text-sm font-medium text-[var(--color-gs-text-main)]">
+          <button type="button" onClick={handleGoogleSignup} className="flex items-center justify-center gap-2 py-3 bg-gs-bg border border-gs-border rounded-xl hover:border-gs-cyan transition-colors text-sm font-medium text-gs-text-main">
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -193,7 +299,7 @@ function Step1({ data, onChange, onNext }) {
             Google
           </button>
           {/* Microsoft */}
-          <button className="flex items-center justify-center gap-2 py-3 bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl hover:border-[var(--color-gs-violet)] transition-colors text-sm font-medium text-[var(--color-gs-text-main)]">
+          <button className="flex items-center justify-center gap-2 py-3 bg-gs-bg border border-gs-border rounded-xl hover:border-gs-violet transition-colors text-sm font-medium text-gs-text-main">
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#F35325" d="M11.4 2H2v9.4h9.4V2z"/>
               <path fill="#81BC06" d="M22 2h-9.4v9.4H22V2z"/>
@@ -216,17 +322,16 @@ function Step2({ data, onChange, onNext, onBack }) {
   return (
     <div className="space-y-5 animate-[slideIn_0.3s_ease-out]">
       <div>
-        <h2 className="text-3xl font-bold text-[var(--color-gs-text-main)]">Personal Info</h2>
-        <p className="text-[var(--color-gs-text-muted)] mt-1">Tell us a bit about yourself.</p>
+        <p className="text-gs-text-muted mt-1">Tell us a bit about yourself.</p>
       </div>
 
       {/* Avatar Picker */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Profile Avatar</label>
+        <label className="block text-sm text-gs-text-muted mb-2">Profile Avatar</label>
         <div className="flex flex-wrap gap-2">
           {AVATARS.map(av => (
             <button key={av} type="button" onClick={() => onChange('avatar', av)}
-              className={"text-2xl w-11 h-11 rounded-xl border transition-all hover:scale-110 " + (data.avatar === av ? 'border-[var(--color-gs-cyan)] bg-[var(--color-gs-cyan)]/10 shadow-[0_0_10px_rgba(0,212,255,0.3)]' : 'border-[var(--color-gs-border)] bg-[var(--color-gs-bg)]')}
+              className={"text-2xl w-11 h-11 rounded-xl border transition-all hover:scale-110 " + (data.avatar === av ? 'border-gs-cyan bg-gs-cyan/10 shadow-[0_0_10px_rgba(0,212,255,0.3)]' : 'border-[var(--color-gs-border)] bg-gs-bg')}
             >{av}</button>
           ))}
         </div>
@@ -234,11 +339,11 @@ function Step2({ data, onChange, onNext, onBack }) {
 
       {/* Full Name */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Full Name <span className="text-red-400">*</span></label>
+        <label className="block text-sm text-gs-text-muted mb-2">Full Name <span className="text-red-400">*</span></label>
         <div className="relative">
-          <User size={18} className="absolute left-3 top-3.5 text-[var(--color-gs-text-muted)]" />
+          <User size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
           <input type="text" value={data.fullName} onChange={e => onChange('fullName', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl pl-10 pr-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]"
+            className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main"
             placeholder="Your full name" />
         </div>
       </div>
@@ -246,18 +351,18 @@ function Step2({ data, onChange, onNext, onBack }) {
       <div className="grid grid-cols-2 gap-4">
         {/* DOB */}
         <div>
-          <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Date of Birth</label>
+          <label className="block text-sm text-gs-text-muted mb-2">Date of Birth</label>
           <div className="relative">
-            <Calendar size={18} className="absolute left-3 top-3.5 text-[var(--color-gs-text-muted)]" />
+            <Calendar size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
             <input type="date" value={data.dob} onChange={e => onChange('dob', e.target.value)}
-              className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl pl-10 pr-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)] [color-scheme:dark]" />
+              className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main [color-scheme:dark]" />
           </div>
         </div>
         {/* Gender */}
         <div>
-          <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Gender</label>
+          <label className="block text-sm text-gs-text-muted mb-2">Gender</label>
           <select value={data.gender} onChange={e => onChange('gender', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]">
+            className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main">
             <option value="">Select...</option>
             {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
@@ -267,11 +372,11 @@ function Step2({ data, onChange, onNext, onBack }) {
 
 
       <div className="flex gap-3 pt-2">
-        <button onClick={onBack} className="flex-1 py-3 border border-[var(--color-gs-border)] rounded-xl text-[var(--color-gs-text-main)] hover:bg-[var(--color-gs-bg)] transition-colors flex items-center justify-center gap-2 font-medium">
+        <button onClick={onBack} className="flex-1 py-3 border border-gs-border rounded-xl text-gs-text-main hover:bg-gs-bg transition-colors flex items-center justify-center gap-2 font-medium">
           <ArrowLeft size={18} /> Back
         </button>
         <button onClick={onNext} disabled={!isValid}
-          className="flex-1 py-3 bg-[var(--color-gs-cyan)] text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+          className="flex-1 py-3 bg-gs-cyan text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
           Continue <ArrowRight size={18} />
         </button>
       </div>
@@ -289,26 +394,26 @@ function Step3({ data, onChange, onNext, onBack }) {
   return (
     <div className="space-y-5 animate-[slideIn_0.3s_ease-out]">
       <div>
-        <h2 className="text-3xl font-bold text-[var(--color-gs-text-main)]">Academic Info</h2>
-        <p className="text-[var(--color-gs-text-muted)] mt-1">Your educational background.</p>
+        <h2 className="text-3xl font-bold text-gs-text-main">Academic Info</h2>
+        <p className="text-gs-text-muted mt-1">Your educational background.</p>
       </div>
 
       {/* College Searchable Dropdown */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">College / University <span className="text-red-400">*</span></label>
+        <label className="block text-sm text-gs-text-muted mb-2">College / University <span className="text-red-400">*</span></label>
         <div className="relative">
-          <GraduationCap size={18} className="absolute left-3 top-3.5 text-[var(--color-gs-text-muted)]" />
+          <GraduationCap size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
           <input type="text" value={collegeSearch}
             onChange={e => { setCollegeSearch(e.target.value); setShowCollegeList(true); onChange('college', e.target.value); }}
             onFocus={() => setShowCollegeList(true)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl pl-10 pr-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]"
+            className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-"
             placeholder="Search your college..." />
           {showCollegeList && filteredColleges.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--color-gs-card)] border border-[var(--color-gs-border)] rounded-xl overflow-hidden shadow-2xl z-20 max-h-48 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-gs-card border border-gs-border rounded-xl overflow-hidden shadow-2xl z-20 max-h-48 overflow-y-auto">
               {filteredColleges.map(c => (
                 <button key={c} type="button"
                   onClick={() => { onChange('college', c); setCollegeSearch(c); setShowCollegeList(false); }}
-                  className="w-full text-left px-4 py-3 text-sm text-[var(--color-gs-text-main)] hover:bg-[var(--color-gs-bg)] transition-colors border-b border-[var(--color-gs-border)] last:border-0">
+                  className="w-full text-left px-4 py-3 text-sm text-gs-text-main hover:bg-gs-bg transition-colors border-b border-gs-border last:border-0">
                   {c}
                 </button>
               ))}
@@ -320,16 +425,16 @@ function Step3({ data, onChange, onNext, onBack }) {
       <div className="grid grid-cols-2 gap-4">
         {/* Student ID */}
         <div>
-          <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Student ID / Roll No.</label>
+          <label className="block text-sm text-gs-text-muted mb-2">Student ID / Roll No.</label>
           <input type="text" value={data.studentId} onChange={e => onChange('studentId', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]"
+            className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-"
             placeholder="e.g. 21CS001" />
         </div>
         {/* Course */}
         <div>
-          <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Degree <span className="text-red-400">*</span></label>
+          <label className="block text-sm text-gs-text-muted mb-2">Degree <span className="text-red-400">*</span></label>
           <select value={data.course} onChange={e => onChange('course', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]">
+            className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-">
             <option value="">Select...</option>
             {COURSES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -338,9 +443,9 @@ function Step3({ data, onChange, onNext, onBack }) {
 
       {/* Branch */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Branch / Department</label>
+        <label className="block text-sm text-gs-text-muted mb-2">Branch / Department</label>
         <select value={data.branch} onChange={e => onChange('branch', e.target.value)}
-          className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]">
+          className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-">
           <option value="">Select branch...</option>
           {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
@@ -349,27 +454,27 @@ function Step3({ data, onChange, onNext, onBack }) {
       <div className="grid grid-cols-3 gap-4">
         {/* Year */}
         <div>
-          <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Year <span className="text-red-400">*</span></label>
+          <label className="block text-sm text-gs-text-muted mb-2">Year <span className="text-red-400">*</span></label>
           <select value={data.year} onChange={e => onChange('year', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]">
+            className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-">
             <option value="">Year</option>
             {['1st', '2nd', '3rd', '4th', '5th', 'Grad'].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         {/* Semester */}
         <div>
-          <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Semester</label>
+          <label className="block text-sm text-gs-text-muted mb-2">Semester</label>
           <select value={data.semester} onChange={e => onChange('semester', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]">
+            className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-">
             <option value="">Sem</option>
             {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         {/* Grad Year */}
         <div>
-          <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Grad Year</label>
+          <label className="block text-sm text-gs-text-muted mb-2">Grad Year</label>
           <select value={data.gradYear} onChange={e => onChange('gradYear', e.target.value)}
-            className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]">
+            className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-">
             <option value="">Year</option>
             {[2025,2026,2027,2028,2029,2030].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -378,20 +483,20 @@ function Step3({ data, onChange, onNext, onBack }) {
 
       {/* CGPA */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">
-          CGPA / Percentage <span className="text-xs text-[var(--color-gs-text-muted)] ml-1">(optional · <Lock size={10} className="inline" /> private)</span>
+        <label className="block text-sm text-gs-text-muted mb-2">
+          CGPA / Percentage <span className="text-xs text-gs-text-muted ml-1">(optional · <Lock size={10} className="inline" /> private)</span>
         </label>
         <input type="text" value={data.cgpa} onChange={e => onChange('cgpa', e.target.value)}
-          className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)]"
+          className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-"
           placeholder="e.g. 8.5 or 89%" />
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button onClick={onBack} className="flex-1 py-3 border border-[var(--color-gs-border)] rounded-xl text-[var(--color-gs-text-main)] hover:bg-[var(--color-gs-bg)] transition-colors flex items-center justify-center gap-2 font-medium">
+        <button onClick={onBack} className="flex-1 py-3 border border-gs-border rounded-xl text-gs- hover:bg-gs-bg transition-colors flex items-center justify-center gap-2 font-medium">
           <ArrowLeft size={18} /> Back
         </button>
         <button onClick={onNext} disabled={!isValid}
-          className="flex-1 py-3 bg-[var(--color-gs-cyan)] text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+          className="flex-1 py-3 bg-gs-cyan text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
           Continue <ArrowRight size={18} />
         </button>
       </div>
@@ -430,7 +535,7 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
 
   const Toggle = ({ checked, onChange: onToggle }) => (
     <button type="button" onClick={onToggle}
-      className={"relative w-12 h-6 rounded-full transition-colors duration-200 " + (checked ? 'bg-[var(--color-gs-cyan)]' : 'bg-[var(--color-gs-border)]')}>
+      className={"relative w-12 h-6 rounded-full transition-colors duration-200 " + (checked ? 'bg-gs-cyan' : 'bg-gs-border')}>
       <div className={"absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-200 " + (checked ? 'left-6' : 'left-0.5')} />
     </button>
   );
@@ -438,8 +543,8 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
   return (
     <div className="space-y-5 animate-[slideIn_0.3s_ease-out]">
       <div>
-        <h2 className="text-3xl font-bold text-[var(--color-gs-text-main)]">Interests & Preferences</h2>
-        <p className="text-[var(--color-gs-text-muted)] mt-1">Personalize your GroupSync experience.</p>
+        <h2 className="text-3xl font-bold text-gs-">Interests & Preferences</h2>
+        <p className="text-gs-text-muted mt-1">Personalize your GroupSync experience.</p>
       </div>
 
       {error && (
@@ -450,11 +555,11 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
 
       {/* Event Interests */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Event Interests</label>
+        <label className="block text-sm text-gs-text-muted mb-2">Event Interests</label>
         <div className="flex flex-wrap gap-2">
           {EVENT_INTERESTS.map(interest => (
             <button key={interest} type="button" onClick={() => toggleInterest(interest)}
-              className={"px-3 py-1.5 rounded-full border text-sm transition-all " + (data.interests.includes(interest) ? 'border-[var(--color-gs-cyan)] bg-[var(--color-gs-cyan)]/10 text-[var(--color-gs-cyan)]' : 'border-[var(--color-gs-border)] text-[var(--color-gs-text-muted)] hover:border-[var(--color-gs-cyan)]/50')}>
+              className={"px-3 py-1.5 rounded-full border text-sm transition-all " + (data.interests.includes(interest) ? 'border-gs-cyan bg-gs-cyan/10 text-gs-cyan' : 'border-[var(--color-gs-border)] text-gs-text-muted hover:border-[var(--color-gs-cyan/50')}>
               {interest}
             </button>
           ))}
@@ -463,11 +568,11 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
 
       {/* Skills Tag Input */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Skills</label>
-        <div className="bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl p-3 focus-within:border-[var(--color-gs-cyan)] transition-colors">
+        <label className="block text-sm text-gs-text-muted mb-2">Skills</label>
+        <div className="bg-gs-bg border border-gs-border rounded-xl p-3 focus-within:border-[var(--color-gs-cyan transition-colors">
           <div className="flex flex-wrap gap-2 mb-2">
             {data.skills.map(skill => (
-              <span key={skill} className="flex items-center gap-1 px-3 py-1 bg-[var(--color-gs-violet)]/20 border border-[var(--color-gs-violet)]/40 text-[var(--color-gs-violet)] rounded-full text-sm font-medium">
+              <span key={skill} className="flex items-center gap-1 px-3 py-1 bg-gs-violet/20 border border-gs-violet/40 text-gs-violet rounded-full text-sm font-medium">
                 {skill}
                 <button type="button" onClick={() => removeSkill(skill)} className="hover:text-red-400 transition-colors"><X size={12} /></button>
               </span>
@@ -478,14 +583,14 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
               onChange={e => { setSkillInput(e.target.value); setShowSuggestions(true); }}
               onKeyDown={e => { if (e.key === 'Enter' && skillInput.trim()) { e.preventDefault(); addSkill(skillInput); } }}
               onFocus={() => setShowSuggestions(true)}
-              className="w-full bg-transparent outline-none text-sm text-[var(--color-gs-text-main)] placeholder-[var(--color-gs-text-muted)]"
+              className="w-full bg-transparent outline-none text-sm text-gs- placeholder-gs-text-muted"
               placeholder="Type a skill and press Enter..." />
             {showSuggestions && suggestions.length > 0 && skillInput && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--color-gs-card)] border border-[var(--color-gs-border)] rounded-xl overflow-hidden shadow-2xl z-20">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-gs-card border border-gs-border rounded-xl overflow-hidden shadow-2xl z-20">
                 {suggestions.map(s => (
                   <button key={s} type="button" onMouseDown={() => addSkill(s)}
-                    className="w-full text-left px-4 py-2 text-sm text-[var(--color-gs-text-main)] hover:bg-[var(--color-gs-bg)] transition-colors flex items-center gap-2">
-                    <Plus size={14} className="text-[var(--color-gs-cyan)]" /> {s}
+                    className="w-full text-left px-4 py-2 text-sm text-gs- hover:bg-gs-bg transition-colors flex items-center gap-2">
+                    <Plus size={14} className="text-gs-cyan" /> {s}
                   </button>
                 ))}
               </div>
@@ -496,19 +601,19 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
 
       {/* Bio */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Bio / About Me</label>
+        <label className="block text-sm text-gs-text-muted mb-2">Bio / About Me</label>
         <textarea value={data.bio} onChange={e => onChange('bio', e.target.value)} rows={3}
-          className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl px-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)] resize-none text-sm"
+          className="w-full bg-gs-bg border border-gs-border rounded-xl px-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs- resize-none text-sm"
           placeholder="Tell other students about yourself..." />
       </div>
 
       {/* Social Links */}
       <div>
-        <label className="block text-sm text-[var(--color-gs-text-muted)] mb-2">Social Links</label>
+        <label className="block text-sm text-gs-text-muted mb-2">Social Links</label>
         <div className="space-y-2">
           {[
             { key: 'linkedin', icon: Linkedin, placeholder: 'linkedin.com/in/username', color: 'text-blue-400' },
-            { key: 'github', icon: Github, placeholder: 'github.com/username', color: 'text-[var(--color-gs-text-muted)]' },
+            { key: 'github', icon: Github, placeholder: 'github.com/username', color: 'text-gs-text-muted' },
             { key: 'portfolio', icon: Globe, placeholder: 'yourportfolio.com', color: 'text-emerald-400' },
             { key: 'instagram', icon: Instagram, placeholder: 'instagram.com/username', color: 'text-pink-400' },
             { key: 'twitter', icon: Twitter, placeholder: 'twitter.com/username', color: 'text-sky-400' },
@@ -516,7 +621,7 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
             <div key={key} className="relative">
               <Icon size={16} className={"absolute left-3 top-3.5 " + color} />
               <input type="text" value={data.socialLinks[key] || ''} onChange={e => onChange('socialLinks', { ...data.socialLinks, [key]: e.target.value })}
-                className="w-full bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl pl-10 pr-4 py-3 outline-none focus:border-[var(--color-gs-cyan)] transition-colors text-[var(--color-gs-text-main)] text-sm"
+                className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs- text-sm"
                 placeholder={placeholder} />
             </div>
           ))}
@@ -524,41 +629,41 @@ function Step4({ data, onChange, onSubmit, onBack, isSubmitting, error }) {
       </div>
 
       {/* Notification Preferences */}
-      <div className="bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--color-gs-text-main)] flex items-center gap-2"><Bell size={15} className="text-[var(--color-gs-cyan)]" /> Notifications</h3>
+      <div className="bg-gs-bg border border-gs-border rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-gs- flex items-center gap-2"><Bell size={15} className="text-gs-cyan" /> Notifications</h3>
         {[
           { key: 'events', label: 'New event announcements' },
           { key: 'teamInvites', label: 'Team invitations' },
           { key: 'messages', label: 'Direct messages' },
         ].map(({ key, label }) => (
           <div key={key} className="flex items-center justify-between">
-            <span className="text-sm text-[var(--color-gs-text-muted)]">{label}</span>
+            <span className="text-sm text-gs-text-muted">{label}</span>
             <Toggle checked={data.notifications[key]} onChange={() => toggleNotif(key)} />
           </div>
         ))}
       </div>
 
       {/* Privacy Settings */}
-      <div className="bg-[var(--color-gs-bg)] border border-[var(--color-gs-border)] rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--color-gs-text-main)] flex items-center gap-2"><Shield size={15} className="text-[var(--color-gs-green)]" /> Privacy</h3>
+      <div className="bg-gs-bg border border-gs-border rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-gs- flex items-center gap-2"><Shield size={15} className="text-[var(--color-gs-green)]" /> Privacy</h3>
         {[
           { key: 'publicProfile', label: 'Public profile' },
           { key: 'showSkills', label: 'Show skills to others' },
           { key: 'showEmail', label: 'Show email on profile' },
         ].map(({ key, label }) => (
           <div key={key} className="flex items-center justify-between">
-            <span className="text-sm text-[var(--color-gs-text-muted)]">{label}</span>
+            <span className="text-sm text-gs-text-muted">{label}</span>
             <Toggle checked={data.privacy[key]} onChange={() => togglePrivacy(key)} />
           </div>
         ))}
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button onClick={onBack} disabled={isSubmitting} className="flex-1 py-3 border border-[var(--color-gs-border)] rounded-xl text-[var(--color-gs-text-main)] hover:bg-[var(--color-gs-bg)] transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+        <button onClick={onBack} disabled={isSubmitting} className="flex-1 py-3 border border-gs-border rounded-xl text-gs- hover:bg-gs-bg transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
           <ArrowLeft size={18} /> Back
         </button>
         <button onClick={onSubmit} disabled={isSubmitting}
-          className="flex-1 py-3 bg-[var(--color-gs-cyan)] text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,212,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed">
+          className="flex-1 py-3 bg-gs-cyan text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,212,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed">
           {isSubmitting ? 'Creating...' : 'Create Account'} {!isSubmitting && <Check size={18} />}
         </button>
       </div>
@@ -595,16 +700,14 @@ export default function Signup({ onNavigate }) {
     setIsSubmitting(true);
     setSubmitError('');
     try {
-      const { data: authData, error: authError } = await insforge.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        name: formData.fullName
-      });
-      
-      if (authError) throw authError;
+      const { data: sessionData, error: sessionError } = await insforge.auth.getCurrentSession();
+      if (sessionError) throw sessionError;
 
-      const userId = authData?.user?.id;
+      const userId = sessionData?.session?.user?.id;
       if (userId) {
+        // Update user profile name if not already set
+        await insforge.auth.setProfile({ name: formData.fullName });
+
         // Insert profile data
         const { error: dbError } = await insforge.database
           .from('profiles')
@@ -636,20 +739,20 @@ export default function Signup({ onNavigate }) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[var(--color-gs-bg)] p-4 relative overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-screen w-full bg-gs-bg p-4 relative overflow-hidden">
       {/* Background glow blobs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--color-gs-cyan)]/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[var(--color-gs-violet)]/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gs-cyan/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gs-violet/10 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="w-full max-w-lg bg-[var(--color-gs-card)]/80 backdrop-blur-xl border border-[var(--color-gs-border)] rounded-3xl p-8 z-10 shadow-2xl">
+      <div className="w-full max-w-lg bg-gs-card/80 backdrop-blur-xl border border-gs-border rounded-3xl p-8 z-10 shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-[var(--color-gs-bg)] border border-[var(--color-gs-cyan)] shadow-[0_0_15px_rgba(0,212,255,0.4)] flex items-center justify-center text-[var(--color-gs-cyan)]">
+          <div className="w-10 h-10 rounded-xl bg-gs-bg border border-gs-cyan shadow-[0_0_15px_rgba(0,212,255,0.4)] flex items-center justify-center text-gs-cyan">
             <Zap size={20} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[var(--color-gs-text-main)]">Group<span className="text-[var(--color-gs-cyan)]">Sync</span></h1>
-            <p className="text-xs text-[var(--color-gs-text-muted)]">Step {step} of 4</p>
+            <h1 className="text-lg font-bold text-gs-text-main">Group<span className="text-gs-cyan">Sync</span></h1>
+            <p className="text-xs text-gs-text-muted">Step {step} of 4</p>
           </div>
         </div>
 
@@ -662,13 +765,13 @@ export default function Signup({ onNavigate }) {
             return (
               <React.Fragment key={num}>
                 <div className="flex flex-col items-center gap-1 z-10 w-12 shrink-0">
-                  <div className={"w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-300 bg-[var(--color-gs-bg)] " + (isDone ? 'bg-[var(--color-gs-cyan)] border-[var(--color-gs-cyan)] text-[#0f172a]' : isActive ? 'border-[var(--color-gs-cyan)] text-[var(--color-gs-cyan)] bg-[var(--color-gs-cyan)]/10' : 'border-[var(--color-gs-border)] text-[var(--color-gs-text-muted)]')}>
+                  <div className={"w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-300 bg-gs-bg " + (isDone ? 'bg-gs-cyan border-gs-cyan text-[#0f172a]' : isActive ? 'border-gs-cyan text-gs-cyan bg-gs-cyan/10' : 'border-gs-border text-gs-text-muted')}>
                     {isDone ? <Check size={14} /> : num}
                   </div>
-                  <span className={"text-[10px] font-medium whitespace-nowrap " + (isActive ? 'text-[var(--color-gs-cyan)]' : 'text-[var(--color-gs-text-muted)]')}>{label}</span>
+                  <span className={"text-[10px] font-medium whitespace-nowrap " + (isActive ? 'text-gs-cyan' : 'text-gs-text-muted')}>{label}</span>
                 </div>
                 {i < 3 && (
-                  <div className={"flex-1 h-0.5 mb-5 transition-all duration-500 rounded-full " + (num < step ? 'bg-[var(--color-gs-cyan)] shadow-[0_0_8px_rgba(0,212,255,0.5)]' : 'bg-[var(--color-gs-border)]')} />
+                  <div className={"flex-1 h-0.5 mb-5 transition-all duration-500 rounded-full " + (num < step ? 'bg-gs-cyan shadow-[0_0_8px_rgba(0,212,255,0.5)]' : 'bg-gs-border')} />
                 )}
               </React.Fragment>
             );
@@ -682,9 +785,9 @@ export default function Signup({ onNavigate }) {
         {step === 4 && <Step4 data={formData} onChange={update} onSubmit={handleSubmit} onBack={() => setStep(3)} isSubmitting={isSubmitting} error={submitError} />}
 
         {/* Login link */}
-        <p className="text-center text-[var(--color-gs-text-muted)] mt-6 text-sm">
+        <p className="text-center text-gs-text-muted mt-6 text-sm">
           Already have an account?{' '}
-          <button onClick={() => onNavigate('login')} className="text-[var(--color-gs-cyan)] hover:underline font-medium">
+          <button onClick={() => onNavigate('login')} className="text-gs-cyan hover:underline font-medium">
             Log in
           </button>
         </p>
