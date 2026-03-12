@@ -13,7 +13,7 @@ const getInitialTheme = () => {
 
 export const AppProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
-  const [currentPage, setCurrentPage] = useState('signup');
+  const [currentPage, setCurrentPage] = useState('home');
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [students, setStudents] = useState([]);
@@ -181,7 +181,7 @@ export const AppProvider = ({ children }) => {
     }
     await insforge.auth.signOut();
     setUserState(null);
-    setCurrentPage('signup');
+    setCurrentPage('home');
     showToast('Logged out successfully.', 'success');
   };
 

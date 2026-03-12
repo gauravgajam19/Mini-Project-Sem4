@@ -17,31 +17,54 @@ export default function AISuggestions() {
       const prompt = `You are an AI matching agent for a college collaboration platform.
 Student Profile:
 - Name: ${user.name}
-- Skills: ${user.skills.join(', ')}
-- Interests: ${user.interests.join(', ')}
-- Faction: ${user.faction}
+- Skills: ${user.skills?.join(', ') || 'None'}
+- Interests: ${user.interests?.join(', ') || 'None'}
 
 Available Groups:
-${groups.map(g => `- ${g.name} (ID: ${g.id}): ${g.description}. Skills needed: ${g.skills.join(', ')}`).join('\n')}
+${groups.map(g => `- ${g.name} (ID: ${g.id}): ${g.description}. Skills needed: ${(g.skills || []).join(', ')}`).join('\n')}
 
-Return exactly 3 group recommendations. Format the response as PURE JSON matching this schema, nothing else:
-[{"groupId": number, "groupName": string, "score": number, "reason": "1-sentence reason"}]`;
+Analyze the overlap between the student's skills/interests and the available groups.
+Return EXACTLY 3 group recommendations. 
+You MUST format your ONLY response as a raw JSON array of objects. DO NOT include any markdown formatting like \`\`\`json.
+Schema: [{"groupId": number, "groupName": string, "score": number, "reason": "1-sentence reason"}]`;
 
       const completion = await insforge.ai.chat.completions.create({
         model: 'anthropic/claude-3.5-haiku',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2
+        temperature: 0.1
       });
 
-      const content = completion.choices[0].message.content;
-      // Clean content if model includes markdown braces
-      const jsonStr = content.substring(content.indexOf('['), content.lastIndexOf(']') + 1);
-      const parsedMatches = JSON.parse(jsonStr);
-      setMatches(parsedMatches);
+      let content = completion.choices[0].message.content.trim();
+      
+      // Safety bounds to extract JSON if model still wraps in markdown blocks
+      if (content.startsWith('```')) {
+        const firstBracket = content.indexOf('[');
+        const lastBracket = content.lastIndexOf(']');
+        if (firstBracket !== -1 && lastBracket !== -1) {
+          content = content.substring(firstBracket, lastBracket + 1);
+        }
+      }
+
+      const parsedMatches = JSON.parse(content);
+      // Sort matches by highest score
+      setMatches(parsedMatches.sort((a,b) => b.score - a.score));
     } catch (err) {
       console.error('AI Matching failed:', err);
-      setError('Failed to analyze matches. Please try again.');
-      // generateMockMatches removed to ensure we use real AI
+      setError('AI service unavailable. Using local matching algorithm...');
+      
+      // Fallback: Local skill overlap matching if the AI returns a 429 quota error or fails
+      const fallbackMatches = groups.map(g => ({
+        groupId: g.id,
+        groupName: g.name,
+        score: getOverlapScore(g),
+        reason: g.skills.some(s => user.skills.includes(s)) 
+          ? `Strong overlap in ${g.skills.filter(s => user.skills.includes(s)).join(', ')}.` 
+          : "Matches your general faction profile."
+      }))
+      .sort((a,b) => b.score - a.score)
+      .slice(0, 3);
+      
+      setMatches(fallbackMatches);
     } finally {
       setLoading(false);
     }

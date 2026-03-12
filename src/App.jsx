@@ -11,6 +11,10 @@ import Leaderboard from './components/Leaderboard';
 import OnboardingFlow from './components/OnboardingFlow';
 import GroupDetails from './components/GroupDetails';
 import UserProfile from './components/UserProfile';
+import Home from './components/Home';
+import About from './components/About';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import { useAppContext } from './context/AppContext';
 
 export default function GroupSyncApp() {
@@ -44,7 +48,20 @@ export default function GroupSyncApp() {
         }
       `}} />
 
-      {currentPage === 'signup' ? (
+      {/* Public Marketing Wrapper */}
+      {(currentPage === 'home' || currentPage === 'about') ? (
+        <div className="w-full flex flex-col min-h-screen relative overflow-x-hidden">
+          <Navbar currentPage={currentPage} onNavigate={setCurrentPage} />
+          
+          {/* Main content area */}
+          <main className="flex-1 w-full pt-20">
+            {currentPage === 'home' && <Home onNavigate={setCurrentPage} />}
+            {currentPage === 'about' && <About />}
+          </main>
+          
+          <Footer onNavigate={setCurrentPage} />
+        </div>
+      ) : currentPage === 'signup' ? (
         <Signup onNavigate={setCurrentPage} />
       ) : currentPage === 'login' ? (
         <Login 
