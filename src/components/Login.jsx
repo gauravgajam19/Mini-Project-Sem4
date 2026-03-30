@@ -30,13 +30,12 @@ export default function Login({ onNavigate, onLogin }) {
         if (authError) throw authError;
 
         if (data) {
-        onLogin();
-        navigate('/dashboard')
-      }
+          onLogin();
+          // Let AuthLayout handle the navigation to dashboard
+        }
       } catch (err) {
-        setError(err.message || 'Failed to sign in.');
-      } finally {
         setIsSubmitting(false);
+        setError(err.message || 'Failed to sign in.');
       }
     } else {
       setError('Please fill in all fields.');

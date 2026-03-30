@@ -236,15 +236,18 @@ export default function GroupDetails() {
     e?.preventDefault();
     if (!chatInput.trim() && !mediaPreview) return;
     
+    // Explicitly parse the URL :id into a number to guarantee it is never null/undefined
+    const activeGroupId = Number(id);
+
     const newMessage = {
-      group_id: group.id,
+      group_id: activeGroupId,
       sender_id: user.id,
       text: chatInput || null,
       media: mediaPreview,
       is_poll: false
     };
 
-    const { error } = await supabase.from('messages').insert(newMessage);
+    const { error } = await supabase.from('messages').insert([newMessage]);
     
     if (!error) {
       setChatInput('');
@@ -285,13 +288,15 @@ export default function GroupDetails() {
       voters: {} // Track who voted for what: { user_id: option_index }
     };
 
-    const { error } = await supabase.from('messages').insert({
-      group_id: group.id,
+    const activeGroupId = Number(id);
+
+    const { error } = await supabase.from('messages').insert([{
+      group_id: activeGroupId,
       sender_id: user.id,
       text: pollQuestion,
       is_poll: true,
       media: pollData
-    });
+    }]);
 
     if (!error) {
       setPollQuestion('');

@@ -9,7 +9,6 @@ export default function LoginPage() {
 
   const handleLogin = () => {
     showToast('Login successful!', 'success');
-    navigate('/dashboard');
   };
 
   return <Login onNavigate={(page) => navigate(`/${page}`)} onLogin={handleLogin} />;

@@ -65,7 +65,9 @@ function Step1({ data, onChange, onNext }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [otp, setOtp] = useState('');
+  // 6-digit OTP stored as an array of single characters
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const inputRefs = React.useRef([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -81,17 +83,28 @@ function Step1({ data, onChange, onNext }) {
         email: data.email,
         password: data.password,
         options: {
-          emailRedirectTo: window.location.origin
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        // Handle "user already registered" gracefully
+        if (authError.message?.toLowerCase().includes('already registered') || authError.message?.toLowerCase().includes('already exists')) {
+          setError('An account with this email already exists. Please log in instead.');
+        } else {
+          throw authError;
+        }
+        return;
+      }
 
       // Supabase: if email confirmation is required, user is returned but session is null
       if (signUpData?.user && !signUpData?.session) {
         setIsVerifying(true);
-      } else {
+      } else if (signUpData?.user && signUpData?.session) {
+        // Email confirmation disabled — go straight to next step
         onNext();
+      } else {
+        setIsVerifying(true);
       }
     } catch (err) {
       setError(err.message || 'Registration failed. Please check your details.');
@@ -100,13 +113,48 @@ function Step1({ data, onChange, onNext }) {
     }
   };
 
-  const handleVerifyOtp = async () => {
+  // Handle digit input: auto-advance, backspace-to-previous, and paste
+  const handleChange = (index, e) => {
+    const val = e.target.value;
+
+    // Handle paste of a full 6-digit code into any box
+    if (val.length > 1) {
+      const digits = val.replace(/\D/g, '').slice(0, 6).split('');
+      const next = [...otp];
+      digits.forEach((d, i) => { if (index + i < 6) next[index + i] = d; });
+      setOtp(next);
+      const focusIdx = Math.min(index + digits.length, 5);
+      inputRefs.current[focusIdx]?.focus();
+      return;
+    }
+
+    const digit = val.replace(/\D/g, '').slice(-1);
+    const next = [...otp];
+    next[index] = digit;
+    setOtp(next);
+
+    // Auto-advance to next box when a digit is entered
+    if (digit && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    // Move focus back to previous box on Backspace when current box is empty
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // Join the OTP array and send to Supabase auth
+  const handleVerifyCode = async () => {
+    const token = otp.join('');
     setLoading(true);
     setError('');
     try {
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email: data.email,
-        token: otp,
+        token,
         type: 'signup'
       });
 
@@ -121,9 +169,10 @@ function Step1({ data, onChange, onNext }) {
 
   const handleResendOtp = async () => {
     setError('');
+    setOtp(['', '', '', '', '', '']);
+    inputRefs.current[0]?.focus();
     try {
       await supabase.auth.resend({ type: 'signup', email: data.email });
-      // Optionally show a success message
     } catch (err) {
       setError(err.message || 'Failed to resend code.');
     }
@@ -147,11 +196,20 @@ function Step1({ data, onChange, onNext }) {
     return (
       <div className="space-y-5 animate-[slideIn_0.3s_ease-out]">
         <div>
-          <h2 className="text-3xl font-bold text-gs-text-main">Finalize Signup</h2>
-          <p className="text-gs-text-muted mt-1">We've sent a 6-digit code OR confirmation link to <span className="text-gs-cyan font-medium">{data.email}</span></p>
-          <div className="mt-4 p-3 bg-gs-cyan/5 border border-gs-cyan/20 rounded-xl text-xs text-gs-text-muted leading-relaxed">
-            <p><strong>Option 1:</strong> Enter the 6-digit code below.</p>
-            <p className="mt-1"><strong>Option 2:</strong> Click the confirmation link in the email. After clicking, you can close this window and log in.</p>
+          <h2 className="text-3xl font-bold text-gs-text-main">Check Your Email</h2>
+          <p className="text-gs-text-muted mt-1">We sent a confirmation email to <span className="text-gs-cyan font-medium">{data.email}</span></p>
+        </div>
+
+        {/* Primary: Link-based confirmation */}
+        <div className="p-4 bg-gs-cyan/5 border border-gs-cyan/20 rounded-xl space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-gs-cyan/10 border border-gs-cyan/30 flex items-center justify-center shrink-0 mt-0.5">
+              <Mail size={16} className="text-gs-cyan" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gs-text-main">Click the link in your email</p>
+              <p className="text-xs text-gs-text-muted mt-1">Open the email from <strong>Supabase</strong> and click <strong>"Confirm your mail"</strong>. Once confirmed, come back and click the button below.</p>
+            </div>
           </div>
         </div>
 
@@ -161,38 +219,85 @@ function Step1({ data, onChange, onNext }) {
           </div>
         )}
 
-        <div>
-          <label className="block text-sm text-gs-text-muted mb-2">Verification Code</label>
-          <div className="relative">
-            <Shield size={18} className="absolute left-3 top-3.5 text-gs-text-muted" />
-            <input
-              type="text" value={otp}
-              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className="w-full bg-gs-bg border border-gs-border rounded-xl pl-10 pr-4 py-3 outline-none focus:border-gs-cyan transition-colors text-gs-text-main tracking-[0.5em] text-center font-bold text-xl"
-              placeholder="000000"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleResendOtp}
-            className="text-xs text-gs-cyan mt-2 hover:underline"
-          >
-            Didn't receive code? Resend
-          </button>
-        </div>
-
+        {/* Primary action: for link-based flow */}
         <button
-          onClick={handleVerifyOtp} disabled={otp.length !== 6 || loading}
+          onClick={async () => {
+            setLoading(true);
+            setError('');
+            try {
+              // Check if user has confirmed (session exists after link click)
+              const { data: sessionData } = await supabase.auth.getSession();
+              if (sessionData?.session?.user) {
+                onNext();
+              } else {
+                setError('Email not confirmed yet. Please click the link in your email first, then try again.');
+              }
+            } catch (err) {
+              setError(err.message || 'Could not verify confirmation.');
+            } finally {
+              setLoading(false);
+            }
+          }}
+          disabled={loading}
           className="w-full py-3 bg-gs-cyan text-[#0f172a] font-bold rounded-xl hover:bg-cyan-400 transition-all shadow-[0_0_15px_rgba(0,212,255,0.3)] flex items-center justify-center gap-2 disabled:opacity-40"
         >
-          {loading ? 'Verifying...' : 'Verify & Continue'} <Check size={18} />
+          {loading ? 'Checking...' : "I've Confirmed My Email → Continue"} {!loading && <Check size={18} />}
         </button>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-gs-border" />
+          <span className="text-xs text-gs-text-muted">or enter OTP if you received one</span>
+          <div className="flex-1 h-px bg-gs-border" />
+        </div>
+
+        {/* Secondary: 6-box OTP input */}
+        <div>
+          <label className="block text-sm text-gs-text-muted mb-2">6-Digit Code (if received)</label>
+          <div className="flex gap-2 justify-center">
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={el => (inputRefs.current[index] = el)}
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={digit}
+                onChange={e => handleChange(index, e)}
+                onKeyDown={e => handleKeyDown(index, e)}
+                onFocus={e => e.target.select()}
+                className={[
+                  'w-11 h-12 text-center text-xl font-bold rounded-xl border bg-gs-bg outline-none transition-all duration-200',
+                  digit
+                    ? 'border-gs-cyan text-gs-cyan shadow-[0_0_8px_rgba(0,212,255,0.35)]'
+                    : 'border-gs-border text-gs-text-main focus:border-gs-cyan'
+                ].join(' ')}
+              />
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-3">
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              className="text-xs text-gs-cyan hover:underline"
+            >
+              Resend email
+            </button>
+            <button
+              onClick={handleVerifyCode}
+              disabled={otp.join('').length !== 6 || loading}
+              className="text-xs px-4 py-1.5 bg-gs-cyan/10 border border-gs-cyan/40 text-gs-cyan rounded-lg hover:bg-gs-cyan/20 transition-colors disabled:opacity-40"
+            >
+              {loading ? 'Verifying...' : 'Verify Code'}
+            </button>
+          </div>
+        </div>
         
         <button
           onClick={() => setIsVerifying(false)}
-          className="w-full py-2 text-sm text-gs-text-main transition-colors"
+          className="w-full py-2 text-sm text-gs-text-muted hover:text-gs-text-main transition-colors"
         >
-          Change Email
+          ← Use a different email
         </button>
       </div>
     );

@@ -55,10 +55,6 @@ const ProtectedLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user && !user.onboardingComplete) {
-    return <Navigate to="/onboarding" replace />;
-  }
-
   return (
     <div className="flex bg-gs-bg min-h-screen">
       <Sidebar />
@@ -76,7 +72,6 @@ const AuthLayout = () => {
 
   if (isInitializingAuth) return null;
   if (user) {
-    if (!user.onboardingComplete) return <Navigate to="/onboarding" replace />;
     return <Navigate to="/dashboard" replace />;
   }
   

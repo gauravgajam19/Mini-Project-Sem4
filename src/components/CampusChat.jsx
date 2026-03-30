@@ -75,8 +75,9 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 // ─── Main CampusChat ───────────────────────────────────────────────────────────
 export default function CampusChat() {
-  const { user, students, factions, showToast } = useAppContext();
+  const { user, students, factions, showToast, groups, refreshGroups } = useAppContext();
   const [activeChat, setActiveChat] = useState('general');
+  const [activeGroupId, setActiveGroupId] = useState(null);
   const [inputVal, setInputVal] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
@@ -93,20 +94,99 @@ export default function CampusChat() {
   const [generalMessages, setGeneralMessages] = useState([]);
   const [dmMessages, setDmMessages] = useState({});
 
+  // Resolve active group ID
+  // Handle clicking a chat from the sidebar eagerly
+  const handleSelectChat = async (targetId) => {
+    setActiveChat(targetId);
+    
+    if (targetId === 'general') {
+       // Campus General is handled by the useEffect above
+       return;
+    }
+    
+    // For DMs: Find existing private group between these exact two users
+    let dmGroup = (groups || []).find(g => 
+      (g.privacy === 'private' || g.is_private === true || g.type === 'DM') && 
+      g.memberIds?.includes(user?.id) && 
+      g.memberIds?.includes(targetId) &&
+      g.memberIds?.length === 2
+    );
+
+    if (dmGroup) {
+      setActiveGroupId(dmGroup.id);
+    } else {
+      // Eagerly insert a new private group into the groups table for this DM
+      try {
+        const payload = {
+          name: `DM`,
+          type: 'DM',
+          description: 'Direct Message',
+          privacy: 'private',
+          max_members: 2,
+          members: 2,
+          admin_id: user?.id
+        };
+        
+        const { data: insertedGroup, error: groupErr } = await supabase.from('groups').insert(payload).select().single();
+        if (groupErr) throw groupErr;
+
+        if (insertedGroup) {
+          // Add both users to group_members
+          await supabase.from('group_members').insert([
+            { group_id: insertedGroup.id, profile_id: user?.id },
+            { group_id: insertedGroup.id, profile_id: targetId }
+          ]);
+          setActiveGroupId(insertedGroup.id);
+          if (refreshGroups) refreshGroups();
+        }
+      } catch (err) {
+        console.error('Error auto-creating DM group on sidebar click:', err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const resolveGeneralGroupId = async () => {
+      if (activeChat === 'general') {
+        let g = (groups || []).find(g => g.type === 'General' || g.name === 'Campus General');
+        if (g) {
+          if (isMounted) setActiveGroupId(g.id);
+        } else {
+           const { data } = await supabase.from('groups').select('id').eq('type', 'General').maybeSingle();
+           if (data) {
+              if (isMounted) setActiveGroupId(data.id);
+           } else {
+              const { data: newG } = await supabase.from('groups').insert({
+                name: 'Campus General',
+                type: 'General',
+                description: 'Global campus chat',
+                privacy: 'public',
+                max_members: 9999,
+                members: 0,
+                admin_id: user?.id
+              }).select().single();
+              if (isMounted && newG) setActiveGroupId(newG.id);
+           }
+        }
+      }
+    };
+    if (user && groups) resolveGeneralGroupId();
+    return () => { isMounted = false; };
+  }, [activeChat, groups, user]);
+
   // ─── Supabase Sync ─────────────────────────────────────────────────────────────
   
   // Fetch messages for active chat
   const fetchMessages = useCallback(async () => {
+    if (activeChat !== 'general' && !activeGroupId) {
+      setDmMessages(prev => ({ ...prev, [activeChat]: [] }));
+      return;
+    }
+    if (!activeGroupId) return; // Wait for activeGroupId to resolve
+
     try {
-      let query = supabase.from('messages').select('*, sender:profiles(*)').order('created_at', { ascending: true });
-      
-      if (activeChat === 'general') {
-        query = query.is('group_id', null); // In this schema, null group_id could mean general campus chat
-      } else {
-        // Direct messages would need a group_id or a specific DM table, 
-        // but for now let's assume activeChat IS a group_id if not 'general'
-        query = query.eq('group_id', Number(activeChat));
-      }
+      const query = supabase.from('messages').select('*, sender:profiles(*)').eq('group_id', activeGroupId).order('created_at', { ascending: true });
 
       const { data, error } = await query;
       if (error) throw error;
@@ -140,7 +220,7 @@ export default function CampusChat() {
       .channel('campus-chat')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const newM = payload.new;
-        if ((activeChat === 'general' && !newM.group_id) || (newM.group_id === Number(activeChat))) {
+        if (activeGroupId && Number(newM.group_id) === Number(activeGroupId)) {
           // We need sender info too, so we might need to fetch it or use a view
           fetchMessages(); 
         }
@@ -148,7 +228,7 @@ export default function CampusChat() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [activeChat, fetchMessages]);
+  }, [activeChat, activeGroupId, fetchMessages]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -170,8 +250,13 @@ export default function CampusChat() {
     if (!inputVal.trim() && !mediaPreview) return;
     if (!user) { showToast('Please sign in to chat', 'error'); return; }
 
+    if (!activeGroupId) {
+       showToast('Group still initializing. Please wait a second...', 'info');
+       return;
+    }
+
     const newMessage = {
-      group_id: activeChat === 'general' ? null : Number(activeChat),
+      group_id: activeGroupId,
       sender_id: user.id,
       text: inputVal,
       media: mediaPreview,
@@ -179,7 +264,10 @@ export default function CampusChat() {
 
     try {
       const { error } = await supabase.from('messages').insert([newMessage]);
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error inside CampusChat.jsx handleSend:', error);
+        throw error;
+      }
       
       setInputVal('');
       setReplyTo(null);
@@ -269,7 +357,7 @@ export default function CampusChat() {
         <div className="flex-1 overflow-y-auto">
           {/* General Channel */}
           <button
-            onClick={() => setActiveChat('general')}
+            onClick={() => handleSelectChat('general')}
             className={"w-full flex items-center gap-3 p-4 border-b border-[var(--color-gs-border)] transition-colors text-left border-l-4 " + (activeChat === 'general' ? 'bg-[var(--color-gs-cyan)]/10 border-l-[var(--color-gs-cyan)]' : 'border-l-transparent hover:bg-[var(--color-gs-bg)]')}
           >
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[var(--color-gs-cyan)] to-[var(--color-gs-violet)] flex items-center justify-center text-white shadow-lg shrink-0">
@@ -291,7 +379,7 @@ export default function CampusChat() {
           {sidebarStudents.map(student => (
             <button
               key={student.id}
-              onClick={() => setActiveChat(student.id)}
+              onClick={() => handleSelectChat(student.id)}
               className={"w-full flex items-center gap-3 p-4 border-b border-[var(--color-gs-border)] transition-colors text-left group border-l-4 " + (activeChat === student.id ? 'bg-[var(--color-gs-cyan)]/5 border-l-[var(--color-gs-cyan)]' : 'border-l-transparent hover:bg-[var(--color-gs-bg)]')}
             >
               <div className="relative shrink-0">

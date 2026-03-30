@@ -70,35 +70,70 @@ export const AppProvider = ({ children }) => {
 
   // Handle Authentication Session
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (data?.session) {
-          const authUser = data.session.user;
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
+    let mounted = true;
 
-          if (profileData) {
-            setUserState({ ...profileData, onboardingComplete: true });
-          } else {
-            // User authenticated but no profile -> needs onboarding
-            setUserState({ id: authUser.id, email: authUser.email, onboardingComplete: false });
-          }
-        } else {
+    async function initializeSession() {
+      try {
+        // 1. Initial auth load
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        await handleSessionState(session);
+      } catch (err) {
+        console.error('Session init error:', err);
+        if (mounted) {
           setUserState(null);
+          setIsInitializingAuth(false);
+        }
+      }
+    }
+
+    async function handleSessionState(session) {
+      if (!mounted) return;
+      if (!session?.user) {
+        setUserState(null);
+        setIsInitializingAuth(false);
+        return;
+      }
+
+      try {
+        const authUser = session.user;
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+
+        // If no rows, error.code will be PGRST116. We ignore this and treat it as no-profile.
+        if (profileData) {
+          setUserState({ ...profileData, onboardingComplete: true });
+        } else {
+          setUserState({ id: authUser.id, email: authUser.email, onboardingComplete: false });
         }
       } catch (err) {
-        console.error("Auth session check error:", err);
+        console.error('Profile fetch error:', err);
       } finally {
         setIsInitializingAuth(false);
       }
-    };
+    }
 
-    checkSession();
+    initializeSession();
+
+    // 2. Continuous listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Actively handle SIGNED_IN event to update the state immediately
+      if (event === 'SIGNED_IN') {
+        handleSessionState(session);
+      } else if (event === 'SIGNED_OUT') {
+        setUserState(null);
+        setIsInitializingAuth(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Apply theme class to <html> element

@@ -15,7 +15,45 @@ export default function BrowseGroups() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newGroup, setNewGroup] = useState({ name: '', event: '', type: 'Hackathon', description: '', maxMembers: 4, skills: [], privacy: 'public' });
 
-  const filteredGroups = groups.filter(g => 
+  const dummyGroups = [
+    {
+       id: 'dummy-1',
+       name: 'AI Innovators',
+       event: 'Tech Fest 2026',
+       type: 'Technical',
+       description: 'A group for AI enthusiasts to collaborate on cutting edge projects and build innovative AI solutions.',
+       skills: ['Python', 'Machine Learning', 'AI & ML'],
+       members: 2,
+       maxMembers: 5,
+       privacy: 'public'
+    },
+    {
+       id: 'dummy-2',
+       name: 'Design Mavericks',
+       event: 'UI/UX Hackathon',
+       type: 'Cultural',
+       description: 'Looking for creative minds to design the next big thing in education technology.',
+       skills: ['Figma', 'UI/UX', 'Graphic Design'],
+       members: 1,
+       maxMembers: 4,
+       privacy: 'public'
+    },
+    {
+       id: 'dummy-3',
+       name: 'Blockchain Builders',
+       event: 'Web3 Summit',
+       type: 'Hackathon',
+       description: 'Building decentralized tracking applications for logistics and supply chain management.',
+       skills: ['Solidity', 'Web3', 'React'],
+       members: 3,
+       maxMembers: 6,
+       privacy: 'public'
+    }
+  ];
+
+  const allGroups = [...dummyGroups, ...groups];
+
+  const filteredGroups = allGroups.filter(g => 
     g.privacy !== 'private' &&
     (filterType === 'All' || g.type === filterType) &&
     (g.name.toLowerCase().includes(searchTerm.toLowerCase()) || g.description.toLowerCase().includes(searchTerm.toLowerCase()))
